@@ -57,12 +57,17 @@ const App: React.FC = () => {
     setPendingVoxels(newVoxels);
     setPendingModelName(newName);
 
-    if (isAssembled) {
-        // If current model is up, break it first
+    // Only break first if we are actually fully assembled. 
+    // If we are COLLAPSED, HIDDEN, or ASSEMBLING, we can swap directly.
+    // If DISASSEMBLING, we hook into the transition flag.
+    if (animationState === AnimationState.ASSEMBLED) {
         setIsTransitioning(true);
         setAnimationState(AnimationState.DISASSEMBLING);
+    } else if (animationState === AnimationState.DISASSEMBLING) {
+        // Already breaking? Just ensure we transition when done.
+        setIsTransitioning(true);
     } else {
-        // If current model is down/hidden, swap instantly and build
+        // If current model is broken (COLLAPSED) or hidden, swap instantly and build
         setVoxels(newVoxels);
         setCurrentModelName(newName);
         setPendingVoxels(null);

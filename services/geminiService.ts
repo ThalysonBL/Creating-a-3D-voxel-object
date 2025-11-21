@@ -10,6 +10,7 @@ export const generateVoxelModel = async (prompt: string): Promise<Voxel[]> => {
       contents: `Generate a highly detailed 3D voxel model of: ${prompt}. 
       
       Requirements:
+      - Orientation: Y axis is vertical (UP). The object MUST be standing upright, not lying on its side.
       - The model must be centered around 0,0,0.
       - Use a high resolution grid. Aim for 800 to 2000 blocks to create a realistic 3D shape.
       - Use realistic shading and varied colors to add depth and detail.

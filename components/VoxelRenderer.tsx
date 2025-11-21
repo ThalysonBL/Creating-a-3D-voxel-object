@@ -15,6 +15,7 @@ const BOUNCE_FACTOR = 0.3;
 const FRICTION = 0.95;
 const EXPLOSION_FORCE = 12;
 const ROTATION_DAMPING = 0.98;
+const DISASSEMBLY_TIMEOUT_MS = 3000; // Force complete after 3 seconds
 
 interface ParticleData {
   position: THREE.Vector3;
@@ -41,6 +42,9 @@ const VoxelRenderer: React.FC<VoxelRendererProps> = ({
   // Track animation progress for assembling
   const assemblyProgress = useRef(0);
   const lastState = useRef<AnimationState>(AnimationState.HIDDEN);
+  
+  // Timer ref to force completion if physics never settles
+  const disassemblyTimeoutRef = useRef<number | null>(null);
 
   // Keep latest callback stable for useFrame
   const onAnimationCompleteRef = useRef(onAnimationComplete);
@@ -76,6 +80,13 @@ const VoxelRenderer: React.FC<VoxelRendererProps> = ({
         floorY: minY 
     };
   }, [voxels]);
+
+  // Clear timeout on unmount
+  useEffect(() => {
+    return () => {
+        if (disassemblyTimeoutRef.current) clearTimeout(disassemblyTimeoutRef.current);
+    };
+  }, []);
 
   useLayoutEffect(() => {
     if (!meshRef.current) return;
@@ -161,6 +172,12 @@ const VoxelRenderer: React.FC<VoxelRendererProps> = ({
                 (Math.random() - 0.5) * 15
             );
         });
+
+        // Set safety timeout
+        if (disassemblyTimeoutRef.current) clearTimeout(disassemblyTimeoutRef.current);
+        disassemblyTimeoutRef.current = window.setTimeout(() => {
+            onAnimationCompleteRef.current?.();
+        }, DISASSEMBLY_TIMEOUT_MS);
     } 
     else if (animationState === AnimationState.ASSEMBLING && lastState.current !== AnimationState.ASSEMBLING) {
         assemblyProgress.current = 0;
@@ -225,6 +242,12 @@ const VoxelRenderer: React.FC<VoxelRendererProps> = ({
         if (activeParticles > 0) {
             meshRef.current.instanceMatrix.needsUpdate = true;
         } else if (animationState === AnimationState.DISASSEMBLING) {
+            // Only trigger completion if explicitly in DISASSEMBLING state (not just resting in COLLAPSED)
+            // And clear the timeout since we finished naturally
+             if (disassemblyTimeoutRef.current) {
+                clearTimeout(disassemblyTimeoutRef.current);
+                disassemblyTimeoutRef.current = null;
+            }
             onAnimationCompleteRef.current?.();
         }
 

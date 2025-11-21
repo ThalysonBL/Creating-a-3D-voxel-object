@@ -37,19 +37,29 @@ const Controls: React.FC<ControlsProps> = ({
   };
 
   const handleAssembleClick = () => {
-    if (isCustomMode && prompt.trim()) {
-        // In custom mode with text, Assemble button acts as Generate & Assemble
+    // Only generate if:
+    // 1. Custom mode is active
+    // 2. There is a prompt
+    // 3. The prompt is DIFFERENT from current model (avoid regenerating same thing)
+    const isNewPrompt = prompt.trim() !== currentModelName;
+
+    if (isCustomMode && prompt.trim() && isNewPrompt) {
         handleGenerateSubmit();
     } else {
-        // Normal assemble logic
+        // Otherwise, just assemble the existing model
         onAssemble();
     }
   };
 
-  // Determine if the assemble button is active
+  // Determine button state
+  const isInputDifferent = isCustomMode && prompt.trim() !== currentModelName;
+  
   const isAssembleDisabled = generationStatus === 'generating' || 
-    // If Custom Mode: disable if empty. If NOT Custom Mode: disable if assembled AND no pending changes
-    (isCustomMode ? !prompt.trim() : (!hasPendingChanges && isAssembled));
+    (isCustomMode 
+        // In Custom Mode: Disable if empty OR (Matches current & Already Assembled & No Pending changes)
+        ? !prompt.trim() || (!isInputDifferent && isAssembled && !hasPendingChanges)
+        // In Preset Mode: Disable if Assembled & No Pending changes
+        : (!hasPendingChanges && isAssembled));
 
   return (
     <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 z-10 pointer-events-none flex flex-col items-center justify-end space-y-4">
@@ -153,7 +163,7 @@ const Controls: React.FC<ControlsProps> = ({
             ) : (
                 <>
                     <Hammer size={18} />
-                    Montar
+                    {isCustomMode && prompt.trim() && prompt.trim() !== currentModelName ? 'Gerar e Montar' : 'Montar'}
                 </>
             )}
           </button>
