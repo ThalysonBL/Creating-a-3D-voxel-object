@@ -1,0 +1,5 @@
+{
+  "name": "Voxel Builder AI",
+  "description": "A 3D application to assemble and disassemble voxel objects using Gemini AI or presets.",
+  "requestFramePermissions": []
+}
