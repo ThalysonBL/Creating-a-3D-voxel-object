@@ -108,7 +108,11 @@ const VoxelRenderer: React.FC<VoxelRendererProps> = ({
       tempColor.set(voxel.color);
       meshRef.current!.setColorAt(i, tempColor);
     });
-    meshRef.current.instanceColor!.needsUpdate = true;
+    
+    // Safety check for instanceColor
+    if (meshRef.current.instanceColor) {
+        meshRef.current.instanceColor.needsUpdate = true;
+    }
 
     // Handle State Changes
     if (animationState === AnimationState.HIDDEN) {
@@ -239,7 +243,6 @@ const VoxelRenderer: React.FC<VoxelRendererProps> = ({
                 }
                 
                 // Sleep Threshold: If moving very slowly on the floor, stop completely
-                // Increased threshold to make them settle faster
                 if (Math.abs(p.velocity.y) < 0.5 && (p.velocity.x**2 + p.velocity.z**2) < 0.2) {
                     p.isSleeping = true;
                 }
