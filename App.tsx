@@ -37,6 +37,9 @@ const App: React.FC = () => {
   
   const [isAssembled, setIsAssembled] = useState(false);
   
+  // History State
+  const [history, setHistory] = useState<PresetModel[]>([]);
+  
   // Transition State
   const [pendingVoxels, setPendingVoxels] = useState<Voxel[] | null>(null);
   const [pendingModelName, setPendingModelName] = useState<string | null>(null);
@@ -44,6 +47,18 @@ const App: React.FC = () => {
   
   const [modelVersion, setModelVersion] = useState(0);
   const [cameraResetTrigger, setCameraResetTrigger] = useState(0);
+
+  // Load history from local storage on mount
+  useEffect(() => {
+    try {
+      const savedHistory = localStorage.getItem('voxelBuilderHistory');
+      if (savedHistory) {
+        setHistory(JSON.parse(savedHistory));
+      }
+    } catch (e) {
+      console.error("Failed to load history", e);
+    }
+  }, []);
 
   const handleSelectPreset = (preset: PresetModel) => {
     setSelectedPresetId(preset.id);
@@ -84,12 +99,26 @@ const App: React.FC = () => {
 
   const handleGenerate = async (prompt: string) => {
     setGenerationStatus('generating');
-    // We do NOT hide the current model yet. We wait for generation.
     
     try {
       const newVoxels = await generateVoxelModel(prompt);
       setGenerationStatus('success');
       setSelectedPresetId(null); // Deselect presets as we are using custom
+      
+      // Save to history
+      const newModel: PresetModel = {
+        id: `gen-${Date.now()}`,
+        name: prompt,
+        voxels: newVoxels
+      };
+
+      setHistory(prev => {
+        const updated = [newModel, ...prev];
+        // Limit history to last 20 items to save space
+        const trimmed = updated.slice(0, 20);
+        localStorage.setItem('voxelBuilderHistory', JSON.stringify(trimmed));
+        return trimmed;
+      });
       
       // Trigger the standard transition logic
       startModelTransition(newVoxels, prompt);
@@ -209,6 +238,7 @@ const App: React.FC = () => {
         generationStatus={generationStatus}
         isAssembled={isAssembled}
         hasPendingChanges={!!pendingVoxels}
+        history={history}
       />
 
     </div>

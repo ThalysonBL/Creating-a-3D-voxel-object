@@ -9,13 +9,14 @@ interface VoxelRendererProps {
   onAnimationComplete?: () => void;
 }
 
-// Physics constants
-const GRAVITY = 20;
-const BOUNCE_FACTOR = 0.3;
-const FRICTION = 0.95;
-const EXPLOSION_FORCE = 12;
+// Physics constants adjusted for realistic settling
+const GRAVITY = 28;          // Increased gravity for heavier feel
+const BOUNCE_FACTOR = 0.25;  // Reduced bounce so they don't act like rubber
+const AIR_RESISTANCE = 0.99; // Slight drag in the air
+const GROUND_FRICTION = 0.5; // High friction when touching ground (0.5 means losing 50% speed per frame on floor)
 const ROTATION_DAMPING = 0.98;
-const DISASSEMBLY_TIMEOUT_MS = 3000; // Force complete after 3 seconds
+const EXPLOSION_FORCE = 12;
+const DISASSEMBLY_TIMEOUT_MS = 3000; 
 
 interface ParticleData {
   position: THREE.Vector3;
@@ -92,7 +93,6 @@ const VoxelRenderer: React.FC<VoxelRendererProps> = ({
     if (!meshRef.current) return;
 
     // Ensure particles array matches voxels length
-    // When this component remounts (due to key change in App), this is fresh.
     if (particles.current.length !== voxels.length) {
         particles.current = voxels.map(v => ({
             position: new THREE.Vector3(v.x, v.y, v.z),
@@ -150,7 +150,7 @@ const VoxelRenderer: React.FC<VoxelRendererProps> = ({
         voxels.forEach((v, i) => {
             const p = particles.current[i];
             
-            // Reset before exploding to ensure they start from correct shape
+            // Reset before exploding
             p.position.set(v.x, v.y, v.z);
             p.quaternion.set(0,0,0,1);
             p.isSleeping = false;
@@ -164,7 +164,7 @@ const VoxelRenderer: React.FC<VoxelRendererProps> = ({
             const randomForce = EXPLOSION_FORCE * (0.8 + Math.random() * 0.8);
             
             p.velocity.copy(horizontalDir).multiplyScalar(randomForce);
-            p.velocity.y = 5 + Math.random() * 8; 
+            p.velocity.y = 6 + Math.random() * 8; // Slightly higher initial pop
 
             p.angularVelocity.set(
                 (Math.random() - 0.5) * 15,
@@ -202,24 +202,35 @@ const VoxelRenderer: React.FC<VoxelRendererProps> = ({
             
             activeParticles++;
 
+            // Apply gravity
             p.velocity.y -= GRAVITY * dt;
-            p.velocity.multiplyScalar(0.995);
+            
+            // Apply Air Resistance (Drag)
+            p.velocity.multiplyScalar(AIR_RESISTANCE);
             p.angularVelocity.multiplyScalar(ROTATION_DAMPING);
 
+            // Move
             p.position.addScaledVector(p.velocity, dt);
 
+            // Rotate
             const rotStep = p.angularVelocity.clone().multiplyScalar(dt);
             const qStep = new THREE.Quaternion().setFromEuler(new THREE.Euler(rotStep.x, rotStep.y, rotStep.z));
             p.quaternion.multiply(qStep);
 
+            // Floor Collision
             if (p.position.y < floorY + 0.5) {
                 p.position.y = floorY + 0.5;
                 
+                // Bounce Logic
                 if (p.velocity.y < 0) {
                     p.velocity.y = -p.velocity.y * BOUNCE_FACTOR;
-                    p.velocity.x *= FRICTION;
-                    p.velocity.z *= FRICTION;
                     
+                    // Apply GROUND FRICTION heavily on impact
+                    p.velocity.x *= GROUND_FRICTION;
+                    p.velocity.z *= GROUND_FRICTION;
+                    p.angularVelocity.multiplyScalar(GROUND_FRICTION); // Stop spinning faster on ground
+                    
+                    // Transfer some linear momentum to rotation only if moving fast enough
                     const speedH = Math.sqrt(p.velocity.x**2 + p.velocity.z**2);
                     if (speedH > 0.5) {
                         p.angularVelocity.x += p.velocity.z * 2 * dt;
@@ -227,7 +238,9 @@ const VoxelRenderer: React.FC<VoxelRendererProps> = ({
                     }
                 }
                 
-                if (Math.abs(p.velocity.y) < 0.1 && p.velocity.lengthSq() < 0.1) {
+                // Sleep Threshold: If moving very slowly on the floor, stop completely
+                // Increased threshold to make them settle faster
+                if (Math.abs(p.velocity.y) < 0.5 && (p.velocity.x**2 + p.velocity.z**2) < 0.2) {
                     p.isSleeping = true;
                 }
             }
@@ -242,8 +255,6 @@ const VoxelRenderer: React.FC<VoxelRendererProps> = ({
         if (activeParticles > 0) {
             meshRef.current.instanceMatrix.needsUpdate = true;
         } else if (animationState === AnimationState.DISASSEMBLING) {
-            // Only trigger completion if explicitly in DISASSEMBLING state (not just resting in COLLAPSED)
-            // And clear the timeout since we finished naturally
              if (disassemblyTimeoutRef.current) {
                 clearTimeout(disassemblyTimeoutRef.current);
                 disassemblyTimeoutRef.current = null;
@@ -291,7 +302,7 @@ const VoxelRenderer: React.FC<VoxelRendererProps> = ({
         position={offset} 
         castShadow
         receiveShadow
-        frustumCulled={false} // IMPORTANT: Prevents object from vanishing during animation/particle scatter
+        frustumCulled={false}
         >
         <meshStandardMaterial 
             roughness={0.2} 

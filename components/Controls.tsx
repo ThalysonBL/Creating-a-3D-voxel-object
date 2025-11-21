@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Hammer, Sparkles, RotateCcw, Loader2 } from 'lucide-react';
+import { Box, Hammer, Sparkles, RotateCcw, Loader2, History, Cuboid } from 'lucide-react';
 import { PresetModel, GenerationStatus } from '../types';
 import { PRESETS } from '../constants';
 
@@ -13,7 +13,10 @@ interface ControlsProps {
   generationStatus: GenerationStatus;
   isAssembled: boolean;
   hasPendingChanges?: boolean;
+  history: PresetModel[];
 }
+
+type TabMode = 'presets' | 'create' | 'history';
 
 const Controls: React.FC<ControlsProps> = ({
   onSelectPreset,
@@ -25,9 +28,10 @@ const Controls: React.FC<ControlsProps> = ({
   generationStatus,
   isAssembled,
   hasPendingChanges = false,
+  history,
 }) => {
   const [prompt, setPrompt] = useState('');
-  const [isCustomMode, setIsCustomMode] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabMode>('presets');
 
   const handleGenerateSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -43,7 +47,7 @@ const Controls: React.FC<ControlsProps> = ({
     // 3. The prompt is DIFFERENT from current model (avoid regenerating same thing)
     const isNewPrompt = prompt.trim() !== currentModelName;
 
-    if (isCustomMode && prompt.trim() && isNewPrompt) {
+    if (activeTab === 'create' && prompt.trim() && isNewPrompt) {
         handleGenerateSubmit();
     } else {
         // Otherwise, just assemble the existing model
@@ -52,13 +56,13 @@ const Controls: React.FC<ControlsProps> = ({
   };
 
   // Determine button state
-  const isInputDifferent = isCustomMode && prompt.trim() !== currentModelName;
+  const isInputDifferent = activeTab === 'create' && prompt.trim() !== currentModelName;
   
   const isAssembleDisabled = generationStatus === 'generating' || 
-    (isCustomMode 
+    (activeTab === 'create'
         // In Custom Mode: Disable if empty OR (Matches current & Already Assembled & No Pending changes)
         ? !prompt.trim() || (!isInputDifferent && isAssembled && !hasPendingChanges)
-        // In Preset Mode: Disable if Assembled & No Pending changes
+        // In Preset/History Mode: Disable if Assembled & No Pending changes
         : (!hasPendingChanges && isAssembled));
 
   return (
@@ -71,78 +75,131 @@ const Controls: React.FC<ControlsProps> = ({
           <h2 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
             Voxel Builder
           </h2>
-          <span className="text-xs text-gray-400 px-2 py-1 bg-gray-800 rounded">
+          <span className="text-xs text-gray-400 px-2 py-1 bg-gray-800 rounded truncate max-w-[150px]">
             {currentModelName}
           </span>
         </div>
 
-        <div className="flex space-x-2 mb-4">
+        {/* Navigation Tabs */}
+        <div className="flex space-x-1 mb-4 bg-gray-800 p-1 rounded-xl">
           <button 
-            onClick={() => setIsCustomMode(false)}
-            className={`flex-1 py-2 text-sm rounded-lg transition-colors font-medium ${!isCustomMode ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+            onClick={() => setActiveTab('presets')}
+            className={`flex-1 py-2 text-xs sm:text-sm rounded-lg transition-colors font-medium flex items-center justify-center gap-1
+              ${activeTab === 'presets' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'}`}
           >
-            Modelos Prontos
+            <Box size={14} />
+            Prontos
           </button>
           <button 
-            onClick={() => setIsCustomMode(true)}
-            className={`flex-1 py-2 text-sm rounded-lg transition-colors font-medium ${isCustomMode ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/50' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+            onClick={() => setActiveTab('create')}
+            className={`flex-1 py-2 text-xs sm:text-sm rounded-lg transition-colors font-medium flex items-center justify-center gap-1
+              ${activeTab === 'create' ? 'bg-purple-600 text-white shadow-md' : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'}`}
           >
-            Criar com IA
+            <Sparkles size={14} />
+            Criar
+          </button>
+          <button 
+            onClick={() => setActiveTab('history')}
+            className={`flex-1 py-2 text-xs sm:text-sm rounded-lg transition-colors font-medium flex items-center justify-center gap-1
+              ${activeTab === 'history' ? 'bg-pink-600 text-white shadow-md' : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'}`}
+          >
+            <History size={14} />
+            Histórico
           </button>
         </div>
 
-        {/* Preset Selection */}
-        {!isCustomMode && (
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            {PRESETS.map((preset) => {
-              const isSelected = selectedPresetId === preset.id;
-              return (
-                <button
-                  key={preset.id}
-                  onClick={() => onSelectPreset(preset)}
-                  className={`relative flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-200 group
-                    ${isSelected 
-                      ? 'bg-blue-950 border-2 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)] scale-105 z-10' 
-                      : 'bg-gray-800 border border-gray-700 hover:bg-gray-750 hover:border-gray-500 hover:scale-[1.02]'
-                    }
-                  `}
-                >
-                  {isSelected && (
-                    <div className="absolute inset-0 rounded-xl ring-2 ring-blue-400/30 animate-pulse" />
-                  )}
-                  <Box size={24} className={`mb-2 transition-transform duration-300 ${isSelected ? 'text-blue-400 scale-110' : 'text-gray-500 group-hover:text-blue-300'}`} />
-                  <span className={`text-xs truncate w-full text-center font-medium ${isSelected ? 'text-white' : 'text-gray-400'}`}>
-                    {preset.name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Custom AI Generation */}
-        {isCustomMode && (
-          <form onSubmit={handleGenerateSubmit} className="mb-4">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Ex: Um castelo medieval..."
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-                disabled={generationStatus === 'generating'}
-              />
-              <button
-                type="submit"
-                disabled={generationStatus === 'generating' || !prompt.trim()}
-                className="bg-purple-600 hover:bg-purple-500 disabled:bg-purple-900/50 disabled:text-gray-500 text-white p-3 rounded-lg transition-all hover:shadow-[0_0_15px_rgba(147,51,234,0.5)]"
-              >
-                {generationStatus === 'generating' ? <Loader2 className="animate-spin" size={20} /> : <Sparkles size={20} />}
-              </button>
+        {/* Content Area */}
+        <div className="min-h-[100px]">
+          
+          {/* Preset Selection */}
+          {activeTab === 'presets' && (
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {PRESETS.map((preset) => {
+                const isSelected = selectedPresetId === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => onSelectPreset(preset)}
+                    className={`relative flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-200 group
+                      ${isSelected 
+                        ? 'bg-blue-950 border-2 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)] scale-105 z-10' 
+                        : 'bg-gray-800 border border-gray-700 hover:bg-gray-750 hover:border-gray-500 hover:scale-[1.02]'
+                      }
+                    `}
+                  >
+                    {isSelected && (
+                      <div className="absolute inset-0 rounded-xl ring-2 ring-blue-400/30 animate-pulse" />
+                    )}
+                    <Cuboid size={24} className={`mb-2 transition-transform duration-300 ${isSelected ? 'text-blue-400 scale-110' : 'text-gray-500 group-hover:text-blue-300'}`} />
+                    <span className={`text-xs truncate w-full text-center font-medium ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                      {preset.name}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            {generationStatus === 'error' && <p className="text-red-400 text-xs mt-2 font-medium">Erro ao gerar. Tente novamente.</p>}
-          </form>
-        )}
+          )}
+
+          {/* Custom AI Generation */}
+          {activeTab === 'create' && (
+            <form onSubmit={handleGenerateSubmit} className="mb-4 flex flex-col h-full justify-center">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Ex: Um castelo medieval..."
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                  disabled={generationStatus === 'generating'}
+                />
+                <button
+                  type="submit"
+                  disabled={generationStatus === 'generating' || !prompt.trim()}
+                  className="bg-purple-600 hover:bg-purple-500 disabled:bg-purple-900/50 disabled:text-gray-500 text-white p-3 rounded-lg transition-all hover:shadow-[0_0_15px_rgba(147,51,234,0.5)]"
+                >
+                  {generationStatus === 'generating' ? <Loader2 className="animate-spin" size={20} /> : <Sparkles size={20} />}
+                </button>
+              </div>
+              {generationStatus === 'error' && <p className="text-red-400 text-xs mt-2 font-medium text-center">Erro ao gerar. Tente novamente.</p>}
+              <p className="text-gray-500 text-xs mt-3 text-center">Descreva um objeto para a IA montar bloco por bloco.</p>
+            </form>
+          )}
+
+          {/* History Selection */}
+          {activeTab === 'history' && (
+             <div className="mb-4">
+               {history.length === 0 ? (
+                 <div className="flex flex-col items-center justify-center h-24 text-gray-500 text-sm">
+                   <History size={32} className="mb-2 opacity-20" />
+                   <p>Nenhum modelo criado ainda.</p>
+                 </div>
+               ) : (
+                 <div className="grid grid-cols-3 gap-3 max-h-[140px] overflow-y-auto pr-1 custom-scrollbar">
+                   {history.map((item) => {
+                     const isSelected = selectedPresetId === item.id;
+                     return (
+                       <button
+                         key={item.id}
+                         onClick={() => onSelectPreset(item)}
+                         className={`relative flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-200 group min-h-[80px]
+                           ${isSelected 
+                             ? 'bg-pink-950 border-2 border-pink-500 shadow-[0_0_15px_rgba(236,72,153,0.5)] scale-105 z-10' 
+                             : 'bg-gray-800 border border-gray-700 hover:bg-gray-750 hover:border-gray-500 hover:scale-[1.02]'
+                           }
+                         `}
+                       >
+                         <Sparkles size={20} className={`mb-2 transition-transform duration-300 ${isSelected ? 'text-pink-400 scale-110' : 'text-gray-600 group-hover:text-pink-300'}`} />
+                         <span className={`text-xs line-clamp-2 w-full text-center font-medium leading-tight ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                           {item.name}
+                         </span>
+                       </button>
+                     );
+                   })}
+                 </div>
+               )}
+             </div>
+          )}
+        </div>
 
         {/* Action Buttons (Assemble/Break) */}
         <div className="flex gap-3 mt-2 pt-2 border-t border-gray-800">
@@ -163,7 +220,7 @@ const Controls: React.FC<ControlsProps> = ({
             ) : (
                 <>
                     <Hammer size={18} />
-                    {isCustomMode && prompt.trim() && prompt.trim() !== currentModelName ? 'Gerar e Montar' : 'Montar'}
+                    {activeTab === 'create' && prompt.trim() && prompt.trim() !== currentModelName ? 'Gerar e Montar' : 'Montar'}
                 </>
             )}
           </button>
