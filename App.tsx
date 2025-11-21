@@ -66,6 +66,19 @@ const App: React.FC = () => {
     setPendingModelName(preset.name);
   };
 
+  const handleClearHistory = useCallback(() => {
+    setHistory([]);
+    localStorage.removeItem('voxelBuilderHistory');
+  }, []);
+
+  const handleDeleteHistoryItem = useCallback((id: string) => {
+    setHistory(prev => {
+        const updated = prev.filter(item => item.id !== id);
+        localStorage.setItem('voxelBuilderHistory', JSON.stringify(updated));
+        return updated;
+    });
+  }, []);
+
   // Centralized logic to start a transition to a new model (Pending or Immediate)
   const startModelTransition = (newVoxels: Voxel[], newName: string) => {
     // Set these as pending so the transition logic can pick them up
@@ -233,6 +246,8 @@ const App: React.FC = () => {
         onGenerate={handleGenerate}
         onAssemble={handleAssemble}
         onDisassemble={handleDisassemble}
+        onClearHistory={handleClearHistory}
+        onDeleteHistoryItem={handleDeleteHistoryItem}
         currentModelName={currentModelName}
         selectedPresetId={selectedPresetId}
         generationStatus={generationStatus}

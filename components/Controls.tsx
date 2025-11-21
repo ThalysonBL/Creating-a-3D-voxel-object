@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Box, Hammer, Sparkles, RotateCcw, Loader2, History, Cuboid, GripHorizontal } from 'lucide-react';
+import { Box, Hammer, Sparkles, RotateCcw, Loader2, History, Cuboid, GripHorizontal, Trash2, X } from 'lucide-react';
 import { PresetModel, GenerationStatus } from '../types';
 import { PRESETS } from '../constants';
 
@@ -8,6 +8,8 @@ interface ControlsProps {
   onGenerate: (prompt: string) => void;
   onAssemble: () => void;
   onDisassemble: () => void;
+  onClearHistory: () => void;
+  onDeleteHistoryItem: (id: string) => void;
   currentModelName: string;
   selectedPresetId: string | null;
   generationStatus: GenerationStatus;
@@ -23,6 +25,8 @@ const Controls: React.FC<ControlsProps> = ({
   onGenerate,
   onAssemble,
   onDisassemble,
+  onClearHistory,
+  onDeleteHistoryItem,
   currentModelName,
   selectedPresetId,
   generationStatus,
@@ -224,28 +228,52 @@ const Controls: React.FC<ControlsProps> = ({
                     <p>Nenhum modelo criado ainda.</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-3 gap-3 max-h-[140px] overflow-y-auto pr-1 custom-scrollbar" onPointerDown={(e) => e.stopPropagation()}>
-                    {history.map((item) => {
-                        const isSelected = selectedPresetId === item.id;
-                        return (
-                        <button
-                            key={item.id}
-                            onClick={() => onSelectPreset(item)}
-                            className={`relative flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-200 group min-h-[80px]
-                            ${isSelected 
-                                ? 'bg-pink-950 border-2 border-pink-500 shadow-[0_0_15px_rgba(236,72,153,0.5)] scale-105 z-10' 
-                                : 'bg-gray-800 border border-gray-700 hover:bg-gray-750 hover:border-gray-500 hover:scale-[1.02]'
-                            }
-                            `}
-                        >
-                            <Sparkles size={20} className={`mb-2 transition-transform duration-300 ${isSelected ? 'text-pink-400 scale-110' : 'text-gray-600 group-hover:text-pink-300'}`} />
-                            <span className={`text-xs line-clamp-2 w-full text-center font-medium leading-tight ${isSelected ? 'text-white' : 'text-gray-400'}`}>
-                            {item.name}
-                            </span>
-                        </button>
-                        );
-                    })}
-                    </div>
+                    <>
+                        <div className="flex justify-between items-center mb-2 px-1">
+                             <span className="text-xs text-gray-400">Seus modelos salvos</span>
+                             <button 
+                                onClick={onClearHistory}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
+                                title="Limpar todo o histórico"
+                             >
+                                <Trash2 size={12} /> Limpar Tudo
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3 max-h-[140px] overflow-y-auto pr-1 custom-scrollbar" onPointerDown={(e) => e.stopPropagation()}>
+                        {history.map((item) => {
+                            const isSelected = selectedPresetId === item.id;
+                            return (
+                            <div key={item.id} className="relative group h-full">
+                                <button
+                                    onClick={() => onSelectPreset(item)}
+                                    className={`w-full h-full relative flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-200
+                                    ${isSelected 
+                                        ? 'bg-pink-950 border-2 border-pink-500 shadow-[0_0_15px_rgba(236,72,153,0.5)] scale-105 z-10' 
+                                        : 'bg-gray-800 border border-gray-700 hover:bg-gray-750 hover:border-gray-500 hover:scale-[1.02]'
+                                    }
+                                    `}
+                                >
+                                    <Sparkles size={20} className={`mb-2 transition-transform duration-300 ${isSelected ? 'text-pink-400 scale-110' : 'text-gray-600 group-hover:text-pink-300'}`} />
+                                    <span className={`text-xs line-clamp-2 w-full text-center font-medium leading-tight ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                                    {item.name}
+                                    </span>
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteHistoryItem(item.id);
+                                    }}
+                                    className="absolute top-1 right-1 p-1.5 bg-black/20 hover:bg-red-500/80 text-white/70 hover:text-white rounded-full backdrop-blur-sm transition-colors z-20"
+                                    title="Excluir este item"
+                                >
+                                    <X size={12} />
+                                </button>
+                            </div>
+                            );
+                        })}
+                        </div>
+                    </>
                 )}
                 </div>
             )}
